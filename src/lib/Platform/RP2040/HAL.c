@@ -81,7 +81,7 @@ void SPIWriteByte(HALSPIBus bus, UINT8 value) {
     spi_write_blocking(bus, &value, 1);
 }
 
-void SPIWriteNByte(HALSPIBus bus, UINT8 data[], UINT32 len) {
+void SPIWriteNByte(HALSPIBus bus, const UINT8 data[], UINT32 len) {
     spi_write_blocking(bus, data, len);
 }
 
@@ -147,6 +147,12 @@ void UARTPuts(HALUARTBus bus, const char *text) {
 
 void Delay(UINT32 milliseconds) {
     sleep_ms(milliseconds);
+}
+
+/* Monotonic, for measuring elapsed time. Wraps every ~49.7 days; subtracting two
+ * readings as UINT32 stays correct across the wrap. */
+UINT32 TicksMs(void) {
+    return (UINT32)to_ms_since_boot(get_absolute_time());
 }
 
 /* Seeds the hardware RTC so timestamps are sane without an external time source. */

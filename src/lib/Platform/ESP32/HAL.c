@@ -21,6 +21,7 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "esp_timer.h"
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
@@ -78,6 +79,16 @@ UINT8 DigitalRead(UINT32 pin) {
 #define SPI_MAX_HOSTS 4
 static spi_device_handle_t spiHandles[SPI_MAX_HOSTS];
 
+static void SPIAddDevice(HALSPIBus bus, UINT32 speed) {
+    spi_device_interface_config_t deviceConfig = {
+        .clock_speed_hz = (int)speed,
+        .mode = 0,
+        .spics_io_num = -1, // chip select is driven by the caller
+        .queue_size = 1
+    };
+    spi_bus_add_device(bus, &deviceConfig, &spiHandles[bus]);
+}
+
 void SPIInit(HALSPIBus bus, UINT32 speed) {
     spi_bus_config_t busConfig = {
         .mosi_io_num = (bus == LCD_SPI) ? LCD_MOSI_PIN : SD_SPI_MOSI,
@@ -88,21 +99,18 @@ void SPIInit(HALSPIBus bus, UINT32 speed) {
         .max_transfer_sz = 240 * 240 * 2
     };
     spi_bus_initialize(bus, &busConfig, SPI_DMA_CH_AUTO);
-
-    spi_device_interface_config_t deviceConfig = {
-        .clock_speed_hz = (int)speed,
-        .mode = 0,
-        .spics_io_num = -1, // chip select is driven by the caller
-        .queue_size = 1
-    };
-    spi_bus_add_device(bus, &deviceConfig, &spiHandles[bus]);
+    SPIAddDevice(bus, speed);
 }
 
+/* ESP-IDF fixes the clock when a device is added, so changing it means dropping the
+ * device and adding it again. This has to work: an SD card must be initialized at
+ * 400 kHz or below before being switched to full speed. */
 void SPISetBaudrate(HALSPIBus bus, UINT32 speed) {
-    /* ESP-IDF fixes the clock when the device is added; changing it means removing
-     * and re-adding the device, which would invalidate the handle. */
-    (void)bus;
-    (void)speed;
+    if (spiHandles[bus] != NULL) {
+        spi_bus_remove_device(spiHandles[bus]);
+        spiHandles[bus] = NULL;
+    }
+    SPIAddDevice(bus, speed);
 }
 
 void SPISetFormat(HALSPIBus bus, UINT8 dataBits, UINT8 cpol, UINT8 cpha) {
@@ -119,7 +127,7 @@ void SPIWriteByte(HALSPIBus bus, UINT8 value) {
     spi_device_transmit(spiHandles[bus], &transaction);
 }
 
-void SPIWriteNByte(HALSPIBus bus, UINT8 data[], UINT32 len) {
+void SPIWriteNByte(HALSPIBus bus, const UINT8 data[], UINT32 len) {
     if (spiHandles[bus] == NULL) return;
     spi_transaction_t transaction = {
         .length = len * 8,
@@ -255,6 +263,13 @@ void UARTPuts(HALUARTBus bus, const char *text) {
 void Delay(UINT32 milliseconds) {
     TickType_t ticks = pdMS_TO_TICKS(milliseconds);
     vTaskDelay(ticks > 0 ? ticks : 1);
+}
+
+/* Monotonic, for measuring elapsed time. esp_timer rather than the FreeRTOS tick,
+ * whose default resolution is 10 ms. Wraps every ~49.7 days; subtracting two
+ * readings as UINT32 stays correct across the wrap. */
+UINT32 TicksMs(void) {
+    return (UINT32)(esp_timer_get_time() / 1000);
 }
 
 /* Seeds the system clock so timestamps are sane without NTP or an external RTC. */

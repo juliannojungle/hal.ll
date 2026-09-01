@@ -45,7 +45,21 @@ gui.ll and net.ll are C and consume each other, so a C++ construct in a shared h
 Practical consequences: no classes, no namespaces, no templates, no `nullptr`, no `extern "C"` blocks in
 this repository's own headers. Threads and mutexes are therefore a C API (§3), not a class.
 
-### 7. Never invent a pinout in use
+### 7. All hardware access goes through hal.ll
+
+**Nothing outside this library touches hardware directly.** No `gpio_*`, `spi_*`, `uart_*`, `sleep_ms`,
+`vTaskDelay` or any other SDK call in pedal.guru, fs.ll, gui.ll or net.ll — they call this API and only
+this API. If something they need is missing here, the answer is to add it here, not to reach around.
+
+This is the dev's rule and it applies to the whole collection, so the same paragraph appears in every
+`AGENTS.md`. Inside this repository the rule is inverted, obviously: the platform folders are the one
+place where SDK calls belong.
+
+Where a consumer previously bypassed the HAL, that was a defect: fs.ll's `DiskIO.c` used to call
+`spi_write_blocking` and friends directly, which is exactly how the HAL ended up duplicated in the first
+place.
+
+### 8. Never invent a pinout in use
 
 Pin numbers for peripherals that are actually wired are hardware facts. Do not derive them, and do not
 copy them from a datasheet without confirmation. Some values here are hardware-validated (§4).
@@ -105,7 +119,7 @@ Everything is declared in the platform's `HAL.h`. Grouped as it appears there:
 | SPI | `SPIInit`, `SPISetBaudrate`, `SPISetFormat`, `SPIWriteByte`, `SPIWriteNByte`, `SPIReadNByte`, `SPIWriteReadNByte` |
 | PWM | `PWMGPIOToSliceNum`, `PWMSetWrap`, `PWMSetChannelLevel`, `PWMSetClockDivider`, `PWMSetEnabled` |
 | UART | `UARTInit`, `UARTDeinit`, `UARTIsEnabled`, `UARTIsReadable`, `UARTGetChar`, `UARTPuts` |
-| time | `Delay`, `RTCInitialize`, `RTCGetDateTime` |
+| time | `Delay`, `TicksMs`, `RTCInitialize`, `RTCGetDateTime` |
 | threads | `ThreadStart`, `MutexInit`, `MutexLock`, `MutexRelease` |
 | stdio | `STDIOInitAll` |
 
@@ -149,9 +163,35 @@ remembers the pin and returns 0, `PWMSetWrap` and `PWMSetClockDivider` are no-op
 frequency are fixed in the LEDC timer config inside `PWMSetEnabled`), and everything drives
 `LEDC_CHANNEL_0`. It is enough for one backlight and nothing more. Inherited from gui.ll.
 
-**`SPISetBaudrate` and `SPISetFormat` are no-ops on ESP32.** ESP-IDF fixes clock and mode when the
-device is added to the bus; changing them means removing and re-adding the device, which would
-invalidate the handle the transfer functions hold.
+**`SPISetBaudrate` on ESP32 drops and re-adds the bus device**, because ESP-IDF fixes the clock when a
+device is added. It has to work rather than be a no-op: an SD card must be initialized at 400 kHz or
+below and only then switched to full speed. `SPISetFormat` *is* a no-op there — mode is fixed at device
+creation and nothing has needed to change it.
+
+**`TicksMs` is a monotonic millisecond counter**, for measuring elapsed time rather than sleeping. It
+wraps every ~49.7 days; subtracting two readings as `UINT32` stays correct across the wrap, so the
+idiom is `while ((TicksMs() - start) < timeout)`. On ESP32 it reads `esp_timer` rather than the FreeRTOS
+tick, whose default resolution is 10 ms.
+
+### What the consumer has to link
+
+The contract publishes two more lists besides `SOURCES` and `INCLUDE_DIRS`, because touching the
+peripherals means depending on the platform SDK and a consumer cannot be expected to know which parts of
+it this library reaches for:
+
+- `PLATFORM_LIBRARIES` — on RP2040 the pico-sdk targets (`pico_stdlib`, `pico_multicore`, `hardware_spi`,
+  `hardware_gpio`, `hardware_pwm`, `hardware_uart`, `hardware_rtc`); on Simulator, `pthread`. The
+  consumer passes it to `target_link_libraries`.
+- `PLATFORM_REQUIRES` — on ESP32 the component names (`driver`, `esp_system`, `esp_timer`,
+  `esp_driver_uart`, `esp_driver_ledc`, `esp_driver_gpio`). The consumer passes it to
+  `idf_component_register`'s `REQUIRES`.
+
+**An ESP32 consumer must set `PLATFORM_NAME` in its component `CMakeLists.txt`, not only on the command
+line.** ESP-IDF evaluates that file twice, and the first pass — script mode, to collect `REQUIRES` — sees
+neither the cache nor `-D` arguments. If `PLATFORM_NAME` is not set there, it falls back to `Simulator`,
+`PLATFORM_REQUIRES` comes out empty, and the build fails much later with a missing SDK header instead of
+anything pointing at the cause. `HAL_LL_PATH` has the same problem and is read from the environment for
+that reason.
 
 ## 4. The board definition
 

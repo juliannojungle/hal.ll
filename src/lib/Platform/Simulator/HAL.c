@@ -47,7 +47,7 @@ void SPISetFormat(HALSPIBus bus, UINT8 dataBits, UINT8 cpol, UINT8 cpha) {
     (void)bus; (void)dataBits; (void)cpol; (void)cpha;
 }
 void SPIWriteByte(HALSPIBus bus, UINT8 value) { (void)bus; (void)value; }
-void SPIWriteNByte(HALSPIBus bus, UINT8 data[], UINT32 len) { (void)bus; (void)data; (void)len; }
+void SPIWriteNByte(HALSPIBus bus, const UINT8 data[], UINT32 len) { (void)bus; (void)data; (void)len; }
 
 void SPIReadNByte(HALSPIBus bus, UINT8 txFiller, UINT8 data[], UINT32 len) {
     (void)bus;
@@ -95,6 +95,14 @@ void Delay(UINT32 milliseconds) {
     while (nanosleep(&request, &request) == -1 && errno == EINTR) {
         /* resume the remaining time after an interrupted sleep */
     }
+}
+
+/* Monotonic, for measuring elapsed time. Wraps every ~49.7 days; subtracting two
+ * readings as UINT32 stays correct across the wrap. */
+UINT32 TicksMs(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (UINT32)((UINT32)now.tv_sec * 1000u + (UINT32)(now.tv_nsec / 1000000L));
 }
 
 void RTCInitialize(void) {

@@ -84,6 +84,28 @@ set(INCLUDE_DIRS
     "${HAL_LL_LIB_DIR}/Helper"
     "${HAL_LL_PLATFORM_DIR}")
 
+# The consumer links these into its own target. Touching the peripherals means
+# depending on the platform SDK, and the consumer cannot be expected to know which
+# parts of it this library reaches for. Not needed on ESP32: the component's
+# REQUIRES covers it.
+if(PLATFORM_NAME STREQUAL "RP2040")
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+        pico_stdlib pico_multicore hardware_spi hardware_gpio hardware_pwm
+        hardware_uart hardware_rtc)
+elseif(PLATFORM_NAME STREQUAL "Simulator")
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} pthread)
+elseif(PLATFORM_NAME STREQUAL "ESP32")
+    # The consumer passes these to idf_component_register's REQUIRES.
+    set(PLATFORM_REQUIRES ${PLATFORM_REQUIRES}
+        driver esp_system esp_timer esp_driver_uart esp_driver_ledc esp_driver_gpio)
+endif()
+
 # Guards against the same hal.ll being included by more than one sibling library.
 list(REMOVE_DUPLICATES SOURCES)
 list(REMOVE_DUPLICATES INCLUDE_DIRS)
+if(PLATFORM_LIBRARIES)
+    list(REMOVE_DUPLICATES PLATFORM_LIBRARIES)
+endif()
+if(PLATFORM_REQUIRES)
+    list(REMOVE_DUPLICATES PLATFORM_REQUIRES)
+endif()

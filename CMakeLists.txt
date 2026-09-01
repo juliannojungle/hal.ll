@@ -48,8 +48,7 @@ elseif(PLATFORM_NAME STREQUAL "Simulator")
     add_executable(${PROJECT_NAME} ${SOURCES})
     include_directories(${INCLUDE_DIRS})
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
-    find_package(Threads REQUIRED)
-    target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${PLATFORM_LIBRARIES})
 
 elseif(PLATFORM_NAME STREQUAL "RP2040")
     set(CMAKE_C_STANDARD 11)
@@ -69,9 +68,7 @@ elseif(PLATFORM_NAME STREQUAL "RP2040")
     include_directories(${INCLUDE_DIRS})
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
-    target_link_libraries(${PROJECT_NAME} PUBLIC
-        pico_stdlib pico_multicore hardware_spi hardware_gpio hardware_pwm
-        hardware_uart hardware_rtc)
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${PLATFORM_LIBRARIES})
 
     pico_enable_stdio_usb(${PROJECT_NAME} 1)  # enable usb output
     pico_enable_stdio_uart(${PROJECT_NAME} 0) # disable uart output

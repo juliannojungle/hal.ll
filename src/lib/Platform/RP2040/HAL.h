@@ -63,7 +63,7 @@ void SPIInit(HALSPIBus bus, UINT32 speed);
 void SPISetBaudrate(HALSPIBus bus, UINT32 speed);
 void SPISetFormat(HALSPIBus bus, UINT8 dataBits, UINT8 cpol, UINT8 cpha);
 void SPIWriteByte(HALSPIBus bus, UINT8 value);
-void SPIWriteNByte(HALSPIBus bus, UINT8 data[], UINT32 len);
+void SPIWriteNByte(HALSPIBus bus, const UINT8 data[], UINT32 len);
 void SPIReadNByte(HALSPIBus bus, UINT8 txFiller, UINT8 data[], UINT32 len);
 void SPIWriteReadNByte(HALSPIBus bus, const UINT8 txData[], UINT8 rxData[], UINT32 len);
 
@@ -88,6 +88,7 @@ void UARTPuts(HALUARTBus bus, const char *text);
 /* ------------------------------------------------------------------- time -- */
 
 void Delay(UINT32 milliseconds);
+UINT32 TicksMs(void);
 void RTCInitialize(void);
 void RTCGetDateTime(DateTime *dateTime);
 
