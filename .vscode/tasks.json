@@ -1,0 +1,64 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build: Simulator Full",
+            "type": "shell",
+            "command": "rm -rf build && cmake -B build -DPLATFORM_NAME=Simulator && cmake --build build -j4",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build: Simulator Incremental",
+            "type": "shell",
+            "command": "if [ -d build ] && grep -q 'Simulator' build/CMakeCache.txt 2>/dev/null; then cmake --build build -j4; else rm -rf build && cmake -B build -DPLATFORM_NAME=Simulator && cmake --build build -j4; fi",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Build: RP2040 Full",
+            "type": "shell",
+            "command": "rm -rf build && cmake -B build -DPLATFORM_NAME=RP2040 && cmake --build build -j4",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Build: ESP32 Full",
+            "type": "shell",
+            "command": "source ~/esp-idf/export.sh && rm -rf build && idf.py -DPLATFORM_NAME=ESP32 build",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Build: Incremental",
+            "type": "shell",
+            "command": "cd build && if [ -f build.ninja ]; then source ~/esp-idf/export.sh 2>/dev/null && ninja; else make -j4; fi",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

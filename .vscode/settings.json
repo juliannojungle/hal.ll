@@ -1,0 +1,9 @@
+{
+    "git.detectSubmodules": false,
+    "git.autoRepositoryDetection": "openEditors",
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.rulers": [
+        120
+    ]
+}
