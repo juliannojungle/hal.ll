@@ -6,6 +6,23 @@ Working notes for AI agents and new contributors on **hal.ll**.
 
 ## Ground rules
 
+### 0. Every dot-ll project's README starts with the collection header
+
+All four repositories carry the same two blockquotes right under the title, and they must not be lost:
+
+```markdown
+# hal.ll
+
+> 🦖 **Part of [dot-ll-collection](https://github.com/topics/dot-ll-collection)**
+
+> ⚠️ **This project is under active development. The documentation is growing along the project as it's a work-in-progress.**
+
+This is a lightweight, bare-metal hardware abstraction layer (HAL) library for embedded systems.
+```
+
+More generally: **a file that already exists in the repository gets appended to, never rewritten from
+scratch.** This header was destroyed once by an agent that regenerated `README.md` wholesale.
+
 ### 1. Everything written to this repository is in English
 
 Code, identifiers, string literals, comments, commit messages, `README.md`, this file. Not a single
