@@ -231,14 +231,45 @@ Resolution is two steps: default the path, then check the sentinel file `src/lib
 sentinel is missing, the directory is populated with a shallow `git clone` at configure time. The
 download is deliberately **not** `FetchContent` — see fs.ll's `AGENTS.md` for the full rationale.
 
-**Two rules this file must obey**, both consequences of ESP-IDF's build model:
+**Three rules this file must obey**, all consequences of ESP-IDF's build model. ESP-IDF evaluates the
+consumer's component `CMakeLists.txt` **twice**: first in **script mode** (`cmake -P`, through
+`component_get_requirements.cmake`) purely to harvest `REQUIRES` and learn the dependency graph, then for
+real. In that first pass there is no project, no targets and **no cache**.
 
-1. **Variables and messages only.** ESP-IDF evaluates the component `CMakeLists.txt` that includes this
-   file in **script mode** (`cmake -P`, through `component_get_requirements.cmake`) to collect `REQUIRES`
-   before the real configure. Directory-scoped commands such as `add_compile_definitions` do not exist
-   in that mode and abort the ESP32 configure.
-2. **Never clobber a `PLATFORM_NAME` the caller already set.** In script mode there is no cache, so an
-   unguarded `set(... CACHE ...)` is *not* skipped and would silently reset the platform.
+1. **Variables and messages only.** Directory- and target-scoped commands such as
+   `add_compile_definitions` do not exist in script mode and abort the ESP32 configure.
+2. **Never clobber a `PLATFORM_NAME` the caller already set.** With no cache, an unguarded
+   `set(... CACHE ...)` is *not* skipped and would silently reset the platform to `Simulator`. The
+   consumer's component must also `set(PLATFORM_NAME "ESP32")` in the file itself, because `-D`
+   arguments live in the cache and are invisible there. Get this wrong and `REQUIRES` comes out empty,
+   and the build dies hundreds of files later on a missing SDK header that points at nothing.
+3. **Publish what script mode needs, then `return()` before touching the filesystem.** This is why
+   `PLATFORM_LIBRARIES` / `PLATFORM_REQUIRES` are set at the very top: they depend only on
+   `PLATFORM_NAME`, never on the checkout. Then:
+
+   ```cmake
+   if(DEFINED CMAKE_SCRIPT_MODE_FILE)
+       return()
+   endif()
+   ```
+
+   Without it, the harvest pass resolves `HAL_LL_PATH` to a default it cannot know is wrong and clones a
+   checkout nobody will compile. Guarding only the clone is **not** sufficient — the platform-directory
+   check further down then raises `FATAL_ERROR`, which is how this was discovered.
+
+A sibling contract that includes this one has to reach it even in script mode, or `REQUIRES` is lost.
+`fs.ll.cmake` shows the shape:
+
+```cmake
+if(DEFINED CMAKE_SCRIPT_MODE_FILE)
+    include(${FS_LL_PATH}/src/Dependency/hal.ll.cmake)
+    return()
+endif()
+```
+
+The payoff: no consumer has to export anything. An earlier version required `HAL_LL_PATH` in the
+environment, because that is the only channel that survives script mode; the early `return()` removed the
+need.
 
 ### Root `CMakeLists.txt`
 
@@ -290,8 +321,14 @@ code. Verified this session:
 compiling and by reading, nothing more. In particular the UART, `GPIOSetIRQHandler` and the ESP32 SPI
 read paths are **new code written for this library** and have never executed anywhere.
 
-Nothing consumes hal.ll yet. It was built first, on purpose: fs.ll, gui.ll and net.ll migrate onto it in
-later waves, and pedal.guru will consume it directly for sensor access.
+**fs.ll already consumes it** and is pushed: its `DiskIO.c` reaches the SD card entirely through this
+API on all three platforms, and its `get_fattime` reads the clock through `RTCGetDateTime`. gui.ll and
+net.ll follow in later waves, and pedal.guru will consume it directly for sensor access. The migration
+plan and its current state live in pedal.guru's `AGENTS.md` §17.
+
+Migrating fs.ll is what exposed `TicksMs`, the working ESP32 `SPISetBaudrate`, and the need to publish
+`PLATFORM_LIBRARIES` / `PLATFORM_REQUIRES` — none of which was visible while nothing consumed this
+library. Expect wave 3 to expose more.
 
 ## 8. Open items
 
