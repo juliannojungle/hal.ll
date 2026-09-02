@@ -23,6 +23,39 @@
 # commands such as add_compile_definitions: ESP-IDF evaluates the component that
 # includes it in script mode (cmake -P), where those commands do not exist.
 
+if(NOT DEFINED PLATFORM_NAME)
+    set(PLATFORM_NAME "Simulator")
+endif()
+
+# What the consumer has to link. Declared before anything touches the filesystem
+# because these lists depend only on the platform, never on the checkout.
+if(PLATFORM_NAME STREQUAL "RP2040")
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
+        pico_stdlib pico_multicore hardware_spi hardware_gpio hardware_pwm
+        hardware_uart hardware_rtc)
+elseif(PLATFORM_NAME STREQUAL "Simulator")
+    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} pthread)
+elseif(PLATFORM_NAME STREQUAL "ESP32")
+    # The consumer passes these to idf_component_register's REQUIRES.
+    set(PLATFORM_REQUIRES ${PLATFORM_REQUIRES}
+        driver esp_system esp_timer esp_driver_uart esp_driver_ledc esp_driver_gpio)
+endif()
+
+if(PLATFORM_LIBRARIES)
+    list(REMOVE_DUPLICATES PLATFORM_LIBRARIES)
+endif()
+if(PLATFORM_REQUIRES)
+    list(REMOVE_DUPLICATES PLATFORM_REQUIRES)
+endif()
+
+# ESP-IDF evaluates the consumer's component twice. The first pass runs in script mode
+# (cmake -P) only to collect REQUIRES, which is already published above, and it has no
+# cache to read a caller-provided HAL_LL_PATH from. Stopping here keeps that pass from
+# resolving a path it cannot know and from downloading a checkout nobody will compile.
+if(DEFINED CMAKE_SCRIPT_MODE_FILE)
+    return()
+endif()
+
 if(DEFINED ENV{HAL_LL_PATH} AND (NOT HAL_LL_PATH))
     set(HAL_LL_PATH $ENV{HAL_LL_PATH})
     message("Using HAL_LL_PATH from environment ('${HAL_LL_PATH}')")
@@ -63,10 +96,6 @@ endif()
 
 set(HAL_LL_PATH "${HAL_LL_PATH}" CACHE PATH "Path to the hal.ll root directory" FORCE)
 
-if(NOT DEFINED PLATFORM_NAME)
-    set(PLATFORM_NAME "Simulator")
-endif()
-
 set(HAL_LL_LIB_DIR "${HAL_LL_PATH}/src/lib")
 set(HAL_LL_PLATFORM_DIR "${HAL_LL_LIB_DIR}/Platform/${PLATFORM_NAME}")
 
@@ -84,28 +113,6 @@ set(INCLUDE_DIRS
     "${HAL_LL_LIB_DIR}/Helper"
     "${HAL_LL_PLATFORM_DIR}")
 
-# The consumer links these into its own target. Touching the peripherals means
-# depending on the platform SDK, and the consumer cannot be expected to know which
-# parts of it this library reaches for. Not needed on ESP32: the component's
-# REQUIRES covers it.
-if(PLATFORM_NAME STREQUAL "RP2040")
-    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
-        pico_stdlib pico_multicore hardware_spi hardware_gpio hardware_pwm
-        hardware_uart hardware_rtc)
-elseif(PLATFORM_NAME STREQUAL "Simulator")
-    set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} pthread)
-elseif(PLATFORM_NAME STREQUAL "ESP32")
-    # The consumer passes these to idf_component_register's REQUIRES.
-    set(PLATFORM_REQUIRES ${PLATFORM_REQUIRES}
-        driver esp_system esp_timer esp_driver_uart esp_driver_ledc esp_driver_gpio)
-endif()
-
 # Guards against the same hal.ll being included by more than one sibling library.
 list(REMOVE_DUPLICATES SOURCES)
 list(REMOVE_DUPLICATES INCLUDE_DIRS)
-if(PLATFORM_LIBRARIES)
-    list(REMOVE_DUPLICATES PLATFORM_LIBRARIES)
-endif()
-if(PLATFORM_REQUIRES)
-    list(REMOVE_DUPLICATES PLATFORM_REQUIRES)
-endif()
