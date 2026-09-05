@@ -27,17 +27,23 @@
 
 /* ---------------------------------------------------------------- SD card -- */
 
+/* The active values are the RP2040-LCD-1.28's, and they are hardware-validated: the card
+ * was read on that board with this wiring. They land on header positions that exist on the
+ * ESP32-S3 board too (gui.ll's AGENTS.md, Design Decision 7), and match spi0's natural
+ * function mapping: GP0 is SPI0 RX, GP1 CSn, GP2 SCK, GP3 TX. The number after the slash is
+ * the pin used on an older plain Pico wired to an external round LCD, also tested there;
+ * kept as a record of the two boards, not as an alternative to pick from. */
 #ifndef SD_SPI_SCLK
-#define SD_SPI_SCLK 18 //2|18
+#define SD_SPI_SCLK 2 //2|18
 #endif
 #ifndef SD_SPI_MOSI
-#define SD_SPI_MOSI 19 //3|19
+#define SD_SPI_MOSI 3 //3|19
 #endif
 #ifndef SD_SPI_MISO
-#define SD_SPI_MISO 16 //0|16
+#define SD_SPI_MISO 0 //0|16
 #endif
 #ifndef SD_SPI_CS
-#define SD_SPI_CS 17 //1|17
+#define SD_SPI_CS 1 //1|17
 #endif
 
 /* SPI peripheral instance — MUST match the SD_SPI_* pins above.
@@ -51,7 +57,7 @@
 
 /* Card detect switch. LOW = card present, pull-up assumed. Hardware-validated. */
 #ifndef SD_DETECT_PIN
-#define SD_DETECT_PIN 20 //5|20   // H1 pin 12
+#define SD_DETECT_PIN 5 //5|20   // H1 pin 12
 #endif
 
 /* -------------------------------------------------------------------- LCD -- */
@@ -82,16 +88,18 @@
 
 /* -------------------------------------------------------------------- GPS -- */
 
-/* PLACEHOLDER. Carried over from pedal.guru's GPS.cpp, which is itself legacy and
- * will change. Nothing on the expansion board is wired to these yet. */
+/* Header positions shared with the ESP32-S3 board, so one expansion board serves both.
+ * GP16/GP13 is the only TX/RX pair available among those shared pins: of the five, only
+ * these two carry a UART data function (GP14 and GP15 are UART0 CTS/RTS, GP27 is UART1
+ * RTS). UART1's data pins, GP20/GP21, are taken by the radio. Not hardware-validated. */
 #ifndef GPS_UART
 #define GPS_UART uart0
 #endif
 #ifndef GPS_UART_TX_PIN
-#define GPS_UART_TX_PIN 0
+#define GPS_UART_TX_PIN 16
 #endif
 #ifndef GPS_UART_RX_PIN
-#define GPS_UART_RX_PIN 1
+#define GPS_UART_RX_PIN 13
 #endif
 #ifndef GPS_UART_BAUDRATE
 #define GPS_UART_BAUDRATE 9600
@@ -99,13 +107,14 @@
 
 /* ------------------------------------------------------------ reed switches -- */
 
-/* PLACEHOLDER. The magnet ring's two switches are not wired yet, and the pins have
- * to come from the both-boards overlap analysis before they mean anything. */
+/* Header positions shared with the ESP32-S3 board. Plain GPIO with an interrupt, so no
+ * peripheral function is required. Reed switch versus hall sensor is still an open choice,
+ * which does not change the pins. Not hardware-validated. */
 #ifndef REED_SWITCH_A_PIN
-#define REED_SWITCH_A_PIN 2
+#define REED_SWITCH_A_PIN 14
 #endif
 #ifndef REED_SWITCH_B_PIN
-#define REED_SWITCH_B_PIN 3
+#define REED_SWITCH_B_PIN 15
 #endif
 
 #endif /* HAL_CONFIG_H */

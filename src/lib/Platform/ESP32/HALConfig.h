@@ -83,13 +83,16 @@
 
 /* -------------------------------------------------------------------- GPS -- */
 
-/* PLACEHOLDER. Nothing on the expansion board is wired to these yet; UART_NUM_0 is
- * left alone because ESP-IDF uses it for the console. */
+/* The same physical header positions the RP2040 uses for the GPS, so one expansion board
+ * serves both MCUs: TX is H2 pin 2 (RP2040 GP16 = this board's GP13) and RX is H1 pin 11
+ * (RP2040 GP13 = GP18). The GPIO matrix routes a UART to any pin here, so unlike the
+ * RP2040 there is no TX/RX pin restriction. UART_NUM_0 is left alone because ESP-IDF uses
+ * it for the console. Not hardware-validated. */
 #ifndef GPS_UART
 #define GPS_UART UART_NUM_1
 #endif
 #ifndef GPS_UART_TX_PIN
-#define GPS_UART_TX_PIN 17
+#define GPS_UART_TX_PIN 13
 #endif
 #ifndef GPS_UART_RX_PIN
 #define GPS_UART_RX_PIN 18
@@ -100,13 +103,14 @@
 
 /* ------------------------------------------------------------ reed switches -- */
 
-/* PLACEHOLDER. The magnet ring's two switches are not wired yet, and the pins have
- * to come from the both-boards overlap analysis before they mean anything. */
+/* The same physical header positions the RP2040 uses: H1 pin 13 (RP2040 GP14 = this
+ * board's GP17) and H1 pin 15 (RP2040 GP15 = GP16). Reed switch versus hall sensor is
+ * still an open choice, which does not change the pins. Not hardware-validated. */
 #ifndef REED_SWITCH_A_PIN
-#define REED_SWITCH_A_PIN 2
+#define REED_SWITCH_A_PIN 17
 #endif
 #ifndef REED_SWITCH_B_PIN
-#define REED_SWITCH_B_PIN 3
+#define REED_SWITCH_B_PIN 16
 #endif
 
 #endif /* HAL_CONFIG_H */
