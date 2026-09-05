@@ -52,7 +52,7 @@
         {
             "label": "Build: Incremental",
             "type": "shell",
-            "command": "cd build && if [ -f build.ninja ]; then source ~/esp-idf/export.sh 2>/dev/null && ninja; else make -j4; fi",
+            "command": "cd build && if [ -f build.ninja ]; then source ~/esp-idf/export.sh >/dev/null 2>&1; ninja; else make -j4; fi",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
