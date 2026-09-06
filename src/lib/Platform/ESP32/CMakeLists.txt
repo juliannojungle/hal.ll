@@ -37,5 +37,5 @@ idf_component_register(
     SRCS
         "${PROJ_ROOT}/src/Sample.c"
         ${SOURCES}
-    INCLUDE_DIRS ${INCLUDE_DIRS} "${PROJ_ROOT}/src"
+    INCLUDE_DIRS ${INCLUDE_DIRS}
     REQUIRES ${PLATFORM_REQUIRES})

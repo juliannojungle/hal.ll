@@ -65,7 +65,7 @@ elseif(PLATFORM_NAME STREQUAL "RP2040")
     include(${CMAKE_SOURCE_DIR}/hal.ll.cmake)
     set(SOURCES "${CMAKE_SOURCE_DIR}/src/Sample.c" ${SOURCES})
     add_executable(${PROJECT_NAME} ${SOURCES})
-    include_directories(${INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/src")
+    include_directories(${INCLUDE_DIRS})
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
     target_link_libraries(${PROJECT_NAME} PUBLIC ${PLATFORM_LIBRARIES})
