@@ -24,7 +24,7 @@
 #include <pthread.h>
 
 #include "Types.h"
-#include "HALConfig.h"
+#include "HALConfig.h" // IWYU pragma: keep
 
 /* Bus handles. The SD_SPI / LCD_SPI macros in HALConfig.h are values of these. */
 typedef int HALSPIBus;
@@ -34,6 +34,21 @@ typedef int HALUARTBus;
 typedef struct {
     pthread_mutex_t Handle;
 } HALMutex;
+
+/* Read mocks, declared by the consumer in its own HalMock.h. See AGENTS.md §10. */
+typedef enum {
+    HAL_MOCK_TEXT,
+    HAL_MOCK_CALLBACK
+} HALMockType;
+
+typedef UINT32 (*HALMockCallback)(UINT32 channel);
+
+typedef struct {
+    UINT32 Channel;
+    HALMockType Type;
+    const char *Text;
+    HALMockCallback Callback;
+} HALMockRead;
 
 /* Pico-SDK-compatible constants, so platform-agnostic consumers compile unchanged. */
 #define GPIO_IN                 0

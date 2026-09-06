@@ -116,6 +116,7 @@ hal.ll.cmake                        the build contract; copied into consumer pro
 AGENTS.md                           this file
 README.md                           user-facing overview
 src/Sample.c                        usage example / manual test program
+src/HalMock.h                       empty read-mock definition for the sample only (§10)
 src/lib/Types.h                     UINT8/UINT16/UINT32 and DateTime
 src/lib/Helper/Debug.h              SHOWDEBUG traces, enabled by -DDEBUGMSGS
 src/lib/Platform/<Platform>/        one folder per platform, same file names in each:
@@ -161,7 +162,7 @@ hardware decision that has not been taken (§7), and a library must not invent a
 | `HALSPIBus` | `int` | `spi_inst_t *` | `spi_host_device_t` |
 | `HALUARTBus` | `int` | `uart_inst_t *` | `uart_port_t` |
 | GPIO/SPI/PWM | no-op stubs | pico-sdk | ESP-IDF; PWM through LEDC |
-| `UARTIsEnabled` | always `false` | `uart_is_enabled` | `uart_is_driver_installed` |
+| `UARTIsEnabled` | true only for a mocked bus (§10) | `uart_is_enabled` | `uart_is_driver_installed` |
 | `Delay` | `nanosleep` | `sleep_ms` | `vTaskDelay`, floored at 1 tick |
 | `RTCInitialize` | no-op, host clock | hardware RTC seeded to 2025-01-01 | `settimeofday` to 2025-01-01 UTC |
 | `ThreadStart` | `pthread_create` + detach | `multicore_launch_core1` | `xTaskCreate` |
@@ -406,3 +407,57 @@ The dev wants to think about a transparent way to bring it back. Sketch of the s
 would have to accept an optional "should I stop waiting?" predicate that a higher layer registers, so the
 dependency points the right way — something like `DelaySetInterruptHandler(bool (*shouldStop)(void))`,
 with gui.ll registering `LCDRenderShouldClose`. Not implemented, not decided.
+
+## 10. Read mocks on the Simulator
+
+There is no hardware behind the Simulator, so every read used to be a no-op: `DigitalRead` returned 0,
+`UARTGetChar` returned `'\0'`, `UARTIsEnabled` returned `false`, the two SPI reads filled `0xFF`. That is
+enough to link, and useless for exercising an application on the desktop.
+
+**What a read should answer is the consumer's domain knowledge, not this library's.** A GPS answers NMEA
+sentences; a reed switch answers a bit that depends on what the user is doing. So the consumer declares
+the answers and hal.ll only resolves them.
+
+### The contract
+
+The consumer writes a `HalMock.h` and puts its folder on the include path. The Simulator `HAL.c` includes
+it unconditionally, and defining none of the tables leaves every read exactly as it was.
+
+```c
+#define MOCK_UART_READ { \
+    { .Channel = GPS_UART, .Type = HAL_MOCK_TEXT, .Text = "$GPGGA,...\n" } }
+```
+
+Three optional tables — `MOCK_DIGITAL_READ`, `MOCK_UART_READ`, `MOCK_SPI_READ` — each an initializer list
+of `HALMockRead` (declared in the Simulator `HAL.h`). An entry carries the channel (a pin for digital, a
+bus for UART and SPI), a type and a value:
+
+- **`HAL_MOCK_TEXT`** answers one character per read from `Text`, wrapping to the start at the end. For
+  the two SPI reads it fills the whole `len` that way.
+- **`HAL_MOCK_CALLBACK`** calls `Callback(channel)`. **One signature serves all three tables**, so the
+  caller casts: `UINT32 (*)(UINT32 channel)`. Decided by the dev, over one typedef per family.
+
+A channel with no entry, an entry with an empty `Text`, or a `HAL_MOCK_CALLBACK` with a null `Callback`
+all fall through to the unmocked result rather than dereferencing anything.
+
+**`UARTIsEnabled` reports true for a mocked bus and false for any other**, and it deliberately does *not*
+require `UARTInit` to have been called: a mock answers from the first read. This is a contract change on
+this platform — the function used to be unconditionally `false`, which is what made pedal.guru's
+`GPS::GetData` return immediately. `UARTIsReadable` follows it, because a cyclic text is never out of data.
+
+**The `TEXT` cursor belongs to the entry, not to the reader**, so two threads reading one channel each take
+a character and neither sees the whole input. The dev's call, and it matches the hardware: a real UART FIFO
+behaves the same way.
+
+### Why the header is not published by `hal.ll.cmake`
+
+Deliberate, and decided by the dev. The contract publishes `SOURCES` and `INCLUDE_DIRS` but **not** the
+folder holding `src/HalMock.h`, so a consumer's own copy is the only one on the include path — no
+shadowing, no include-order precedence propping anything up. The cost is that **every consumer must supply
+a `HalMock.h`**, or add hal.ll's empty one to its include dirs from its own `CMakeLists.txt`. That is what
+this repository does for the sample, and what fs.ll, gui.ll and net.ll do for theirs.
+
+pedal.guru supplies a real one at `src/Platform/Simulator/HalMock.h`, mocking the GPS UART. Its build needs
+no adjustment, because the application's include dirs are already appended ahead of hal.ll's.
+
+Only the Simulator `HAL.c` includes the file, so the RP2040 and ESP32 builds are untouched by all of this.

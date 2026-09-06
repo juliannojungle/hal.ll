@@ -82,8 +82,8 @@
 
 /* -------------------------------------------------------------------- GPS -- */
 
-/* PLACEHOLDER, and inert: the Simulator emulates no serial port, so UARTIsEnabled
- * always reports false. */
+/* PLACEHOLDER: GPS_UART is only a channel identifier here, matched against the consumer's
+ * MOCK_UART_READ table; the pins are never read. */
 #ifndef GPS_UART
 #define GPS_UART 0
 #endif
