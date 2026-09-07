@@ -103,4 +103,8 @@ void MutexRelease(HALMutex *mutex);
 
 void STDIOInitAll(void);
 
+/* ----------------------------------------------------------------- system -- */
+
+void DeviceRestart(void);
+
 #endif /* HAL_H */

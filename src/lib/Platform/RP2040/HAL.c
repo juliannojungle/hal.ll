@@ -21,6 +21,7 @@
 #include "pico/stdio_usb.h"
 #include "pico/multicore.h"
 #include "hardware/rtc.h"
+#include "hardware/watchdog.h"
 
 /* ------------------------------------------------------------------- GPIO -- */
 
@@ -206,4 +207,10 @@ void MutexRelease(HALMutex *mutex) {
 void STDIOInitAll(void) {
     stdio_init_all();
     stdio_set_translate_crlf(&stdio_usb, false);
+}
+
+/* ----------------------------------------------------------------- system -- */
+
+void DeviceRestart(void) {
+    watchdog_reboot(0, 0, 0);
 }

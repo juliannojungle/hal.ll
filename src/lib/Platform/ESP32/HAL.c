@@ -22,6 +22,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_timer.h"
+#include "esp_system.h"
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
@@ -325,4 +326,10 @@ void MutexRelease(HALMutex *mutex) {
 
 void STDIOInitAll(void) {
     /* ESP-IDF brings stdio up through its console component. */
+}
+
+/* ----------------------------------------------------------------- system -- */
+
+void DeviceRestart(void) {
+    esp_restart();
 }

@@ -21,6 +21,7 @@
 #include "HalMock.h" // IWYU pragma: keep
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <errno.h>
 
@@ -265,4 +266,10 @@ void MutexRelease(HALMutex *mutex) {
 
 void STDIOInitAll(void) {
     /* The host stdio is already up. */
+}
+
+/* ----------------------------------------------------------------- system -- */
+
+void DeviceRestart(void) {
+    exit(EXIT_SUCCESS);
 }

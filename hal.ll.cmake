@@ -32,7 +32,7 @@ endif()
 if(PLATFORM_NAME STREQUAL "RP2040")
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
         pico_stdlib pico_multicore hardware_spi hardware_gpio hardware_pwm
-        hardware_uart hardware_rtc)
+        hardware_uart hardware_rtc hardware_watchdog)
 elseif(PLATFORM_NAME STREQUAL "Simulator")
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} pthread)
 elseif(PLATFORM_NAME STREQUAL "ESP32")
