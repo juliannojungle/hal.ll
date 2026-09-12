@@ -53,3 +53,6 @@ See `AGENTS.md` for the design decisions, the API surface and the known open ite
 ## License
 
 GNU Affero General Public License v3.0 — see `LICENSE`.
+
+---
+<sup>[@juliannojungle](https://github.com/juliannojungle), 2026</sup>
