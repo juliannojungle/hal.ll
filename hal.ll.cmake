@@ -32,7 +32,8 @@ endif()
 if(PLATFORM_NAME STREQUAL "RP2040")
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES}
         pico_stdlib pico_multicore hardware_spi hardware_gpio hardware_pwm
-        hardware_uart hardware_rtc hardware_watchdog)
+        hardware_uart hardware_rtc hardware_watchdog
+        FreeRTOS-Kernel-Heap4)
 elseif(PLATFORM_NAME STREQUAL "Simulator")
     set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} pthread)
 elseif(PLATFORM_NAME STREQUAL "ESP32")
@@ -48,10 +49,8 @@ if(PLATFORM_REQUIRES)
     list(REMOVE_DUPLICATES PLATFORM_REQUIRES)
 endif()
 
-# ESP-IDF evaluates the consumer's component twice. The first pass runs in script mode
-# (cmake -P) only to collect REQUIRES, which is already published above, and it has no
-# cache to read a caller-provided HAL_LL_PATH from. Stopping here keeps that pass from
-# resolving a path it cannot know and from downloading a checkout nobody will compile.
+# ESP-IDF evaluates components 2x, first pass in script mode (cmake -P) to collect REQUIRES
+# above (without cache to read HAL_LL_PATH). Stopping here prevents duplicated download.
 if(DEFINED CMAKE_SCRIPT_MODE_FILE)
     return()
 endif()
@@ -112,6 +111,12 @@ set(INCLUDE_DIRS
     "${HAL_LL_LIB_DIR}"
     "${HAL_LL_LIB_DIR}/Helper"
     "${HAL_LL_PLATFORM_DIR}")
+
+if(PLATFORM_NAME STREQUAL "RP2040")
+    set(FREERTOS_KERNEL_PATH "${HAL_LL_PATH}/src/Dependency/FreeRTOS-Kernel")
+    include("${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake")
+    # FreeRTOSConfig.h already in the platform INCLUDE_DIRS above.
+endif()
 
 # Guards against the same hal.ll being included by more than one sibling library.
 list(REMOVE_DUPLICATES SOURCES)

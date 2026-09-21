@@ -29,6 +29,8 @@
 #include "hardware/gpio.h"
 #include "hardware/uart.h"
 #include "pico/mutex.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 #include <stdbool.h>
 #include "Types.h"
@@ -41,6 +43,7 @@ typedef uart_inst_t * HALUARTBus;
 /* Opaque to consumers: only the Mutex* functions below may touch it. */
 typedef struct {
     mutex_t Handle;
+    SemaphoreHandle_t ThreadHandle;
 } HALMutex;
 
 /* Rising/falling edge selectors for GPIOSetIRQHandler, mirroring the SDK values. */
@@ -95,6 +98,7 @@ void RTCGetDateTime(DateTime *dateTime);
 /* -------------------------------------------------- threads and mutexes -- */
 
 void ThreadStart(void (*entry)(void));
+void ThreadSchedulerStart();
 void MutexInit(HALMutex *mutex);
 void MutexLock(HALMutex *mutex);
 void MutexRelease(HALMutex *mutex);

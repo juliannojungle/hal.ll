@@ -310,6 +310,10 @@ void ThreadStart(void (*entry)(void)) {
                 (void *)entry, THREAD_PRIORITY, NULL);
 }
 
+void ThreadSchedulerStart() {
+    vTaskStartScheduler();
+}
+
 void MutexInit(HALMutex *mutex) {
     mutex->Handle = xSemaphoreCreateMutex();
 }

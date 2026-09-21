@@ -250,6 +250,10 @@ void ThreadStart(void (*entry)(void)) {
     pthread_detach(thread);
 }
 
+void ThreadSchedulerStart() {
+    /* The host os manages the scheduler */
+}
+
 void MutexInit(HALMutex *mutex) {
     pthread_mutex_init(&mutex->Handle, NULL);
 }

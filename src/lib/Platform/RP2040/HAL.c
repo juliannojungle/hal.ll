@@ -19,7 +19,10 @@
 
 #include "HAL.h"
 #include "pico/stdio_usb.h"
-#include "pico/multicore.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "portmacro.h"
+#include "semphr.h"
 #include "hardware/rtc.h"
 #include "hardware/watchdog.h"
 
@@ -147,7 +150,11 @@ void UARTPuts(HALUARTBus bus, const char *text) {
 /* ------------------------------------------------------------------- time -- */
 
 void Delay(UINT32 milliseconds) {
-    sleep_ms(milliseconds);
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        vTaskDelay(pdMS_TO_TICKS(milliseconds));
+    } else {
+        sleep_ms(milliseconds);
+    }
 }
 
 /* Monotonic, for measuring elapsed time. Wraps every ~49.7 days; subtracting two
@@ -184,22 +191,45 @@ void RTCGetDateTime(DateTime *dateTime) {
 
 /* -------------------------------------------------- threads and mutexes -- */
 
-/* The RP2040 has two cores and no scheduler, so there is exactly one extra thread
- * of execution available: core 1. A second call would overwrite the first. */
+#define THREAD_STACK_SIZE 4096
+#define THREAD_PRIORITY   1
+
+static void ThreadTrampoline(void *entry) {
+    ((void (*)(void))entry)();
+    vTaskDelete(NULL);
+}
+
 void ThreadStart(void (*entry)(void)) {
-    multicore_launch_core1(entry);
+    xTaskCreate(ThreadTrampoline, "hal.ll thread", THREAD_STACK_SIZE,
+                (void *)entry, THREAD_PRIORITY, NULL);
+}
+
+void ThreadSchedulerStart() {
+    vTaskStartScheduler();
 }
 
 void MutexInit(HALMutex *mutex) {
-    mutex_init(&mutex->Handle);
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        mutex->ThreadHandle = xSemaphoreCreateMutex();
+    } else {
+        mutex_init(&mutex->Handle);
+    }
 }
 
 void MutexLock(HALMutex *mutex) {
-    mutex_enter_blocking(&mutex->Handle);
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        xSemaphoreTake(mutex->ThreadHandle, portMAX_DELAY);
+    } else {
+        mutex_enter_blocking(&mutex->Handle);
+    }
 }
 
 void MutexRelease(HALMutex *mutex) {
-    mutex_exit(&mutex->Handle);
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        xSemaphoreGive(mutex->ThreadHandle);
+    } else {
+        mutex_exit(&mutex->Handle);
+    }
 }
 
 /* ------------------------------------------------------------------ stdio -- */
