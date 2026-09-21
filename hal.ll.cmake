@@ -112,7 +112,7 @@ set(INCLUDE_DIRS
     "${HAL_LL_LIB_DIR}/Helper"
     "${HAL_LL_PLATFORM_DIR}")
 
-if(PLATFORM_NAME STREQUAL "RP2040")
+if(PLATFORM_NAME STREQUAL "RP2040" AND (NOT FREERTOS_KERNEL_PATH))
     set(FREERTOS_KERNEL_PATH "${HAL_LL_PATH}/src/Dependency/FreeRTOS-Kernel")
     include("${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake")
     # FreeRTOSConfig.h already in the platform INCLUDE_DIRS above.
