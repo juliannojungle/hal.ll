@@ -244,8 +244,9 @@ static void *ThreadTrampoline(void *entry) {
     return NULL;
 }
 
-void ThreadStart(void (*entry)(void), UINT32 stackSize) {
+void ThreadStart(void (*entry)(void), UINT32 stackSize, const char *threadName) {
     (void)stackSize;
+    (void)threadName;
     pthread_t thread;
     pthread_create(&thread, NULL, ThreadTrampoline, (void *)entry);
     pthread_detach(thread);
@@ -265,6 +266,14 @@ void MutexLock(HALMutex *mutex) {
 
 void MutexRelease(HALMutex *mutex) {
     pthread_mutex_unlock(&mutex->Handle);
+}
+
+void *HeapAlloc(UINT32 size) {
+    return malloc(size);
+}
+
+void HeapFree(void *pointer) {
+    free(pointer);
 }
 
 /* ------------------------------------------------------------------ stdio -- */

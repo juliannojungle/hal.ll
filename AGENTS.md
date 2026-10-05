@@ -139,6 +139,7 @@ Everything is declared in the platform's `HAL.h`. Grouped as it appears there:
 | UART | `UARTInit`, `UARTDeinit`, `UARTIsEnabled`, `UARTIsReadable`, `UARTGetChar`, `UARTPuts` |
 | time | `Delay`, `TicksMs`, `RTCInitialize`, `RTCGetDateTime` |
 | threads | `ThreadStart`, `MutexInit`, `MutexLock`, `MutexRelease` |
+| heap | `HeapAlloc`, `HeapFree` |
 | stdio | `STDIOInitAll` |
 
 Three decisions inside that surface are worth knowing:
@@ -155,6 +156,21 @@ hardware decision that has not been taken (§7), and a library must not invent a
 `HALMutex` is a struct whose single field is the platform primitive (`pthread_mutex_t`, pico-sdk
 `mutex_t`, FreeRTOS `SemaphoreHandle_t`); only the `Mutex*` functions may touch it.
 
+**`ThreadStart` takes a per-thread stack size and a name.** The signature is
+`ThreadStart(void (*entry)(void), UINT32 stackSize, const char *threadName)`. `stackSize` is in **words**
+(FreeRTOS units), not bytes, so a value of 1024 is 4 KB on the RP2040. It was a single parameterless call
+with a fixed stack before; different threads legitimately need different stacks (a GUI/render thread
+needs far more than a sensor-polling loop), and sizing each one is how a consumer keeps the FreeRTOS heap
+in budget on the RP2040, where task stacks are carved from it. On the Simulator both `stackSize` and
+`threadName` are ignored (pthread default stack); on the hardware platforms `threadName` is the FreeRTOS
+task name.
+
+**`HeapAlloc` / `HeapFree` allocate from the runtime heap, not the C library heap.** On the RP2040 and
+ESP32 they are `pvPortMalloc` / `vPortFree` (the FreeRTOS heap); on the Simulator, plain `malloc` / `free`.
+They exist so a consumer can keep a large transient buffer off the libc heap when the two pools compete
+for the same SRAM — for example serving a decompression window from the FreeRTOS heap while a large
+framebuffer already occupies the libc heap.
+
 ### Platform differences that matter
 
 | | Simulator | RP2040 | ESP32 |
@@ -165,16 +181,19 @@ hardware decision that has not been taken (§7), and a library must not invent a
 | `UARTIsEnabled` | true only for a mocked bus (§10) | `uart_is_enabled` | `uart_is_driver_installed` |
 | `Delay` | `nanosleep` | `sleep_ms` | `vTaskDelay`, floored at 1 tick |
 | `RTCInitialize` | no-op, host clock | hardware RTC seeded to 2025-01-01 | `settimeofday` to 2025-01-01 UTC |
-| `ThreadStart` | `pthread_create` + detach | `multicore_launch_core1` | `xTaskCreate` |
+| `ThreadStart` | `pthread_create` + detach | `xTaskCreate` (FreeRTOS) | `xTaskCreate` |
 | entry point | `main()` | `main()` | `app_main()` (`ESP_PLATFORM` defined) |
 
 `RTCInitialize` seeds a fixed date on the two hardware platforms so timestamps are sane without an
 external time source. That is inherited behaviour from fs.ll, not a new choice.
 
-**`ThreadStart` on the RP2040 can only be called once.** It launches core 1, and the RP2040 has no
-scheduler, so there is exactly one extra thread of execution available; a second call would overwrite
-the first. The other two platforms have no such limit, so code written against them can look fine and
-fail here.
+**The RP2040 runs FreeRTOS, so `ThreadStart` creates a task and can be called any number of times.** It
+used to be `multicore_launch_core1`, which could be called only once (one extra core, no scheduler), and
+an earlier version of this note warned about that; that limit is gone. FreeRTOS runs SMP on both cores
+(`configNUMBER_OF_CORES = 2`), and the task stacks come from the FreeRTOS heap, so an over-sized stack
+costs heap rather than failing silently. `vTaskStartScheduler` is reached through `ThreadSchedulerStart`
+(a function that did not exist in the single-core design). The pico-sdk's cyw43/lwIP stack depends on SMP
+staying at 2 cores — single core was tried and broke the network bring-up.
 
 **The ESP32 PWM mapping is lossy.** LEDC has channels rather than slices, so `PWMGPIOToSliceNum` just
 remembers the pin and returns 0, `PWMSetWrap` and `PWMSetClockDivider` are no-ops (resolution and
@@ -190,6 +209,25 @@ creation and nothing has needed to change it.
 wraps every ~49.7 days; subtracting two readings as `UINT32` stays correct across the wrap, so the
 idiom is `while ((TicksMs() - start) < timeout)`. On ESP32 it reads `esp_timer` rather than the FreeRTOS
 tick, whose default resolution is 10 ms.
+
+### The RP2040 FreeRTOS configuration
+
+`src/lib/Platform/RP2040/FreeRTOSConfig.h` is the kernel configuration. Points that matter and were paid
+for in debugging:
+
+- **SMP, two cores** (`configNUMBER_OF_CORES = 2`). The pico-sdk's cyw43/lwIP stack relies on this;
+  single core was tried and broke a consumer's Wi-Fi bring-up. The SMP-only settings
+  (`configUSE_CORE_AFFINITY`, `configTICK_CORE`, `configUSE_PASSIVE_IDLE_HOOK`) must stay present — the
+  kernel raises an `#error` for `configUSE_CORE_AFFINITY` under single core.
+- **`configTOTAL_HEAP_SIZE` is 64 KB.** This heap feeds every task stack (`ThreadStart`) *and* the
+  pico-sdk's cyw43/lwIP, which is a heavy consumer. Shrinking it to make room elsewhere starves the radio;
+  do not treat it as free space to reclaim.
+- **Two safety hooks are on, deliberately**, and they are cheap insurance on a RAM-tight device:
+  `configCHECK_FOR_STACK_OVERFLOW = 2` with `vApplicationStackOverflowHook`, and
+  `configUSE_MALLOC_FAILED_HOOK = 1` with `vApplicationMallocFailedHook`. Both live in `HAL.c`, log
+  through `SHOWDEBUG` and then spin, turning a silent corruption into a serial message. Note the stack
+  check samples on context switch, so a deep overflow inside a single call can still fault before it runs.
+  `INCLUDE_uxTaskGetStackHighWaterMark = 1` is on so a consumer can measure real stack use.
 
 ### What the consumer has to link
 

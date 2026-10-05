@@ -59,7 +59,7 @@ void app_entry(void) {
 
     MutexInit(&mutex);
     counter = 0;
-    ThreadStart(CounterThread, 1024);
+    ThreadStart(CounterThread, 1024, "Counter");
 
     /* Delay is the only synchronisation here: the point is to show the second thread
      * running and the mutex guarding a shared counter, not to be a correct join. */

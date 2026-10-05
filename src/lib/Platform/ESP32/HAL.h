@@ -96,11 +96,13 @@ void RTCGetDateTime(DateTime *dateTime);
 
 /* -------------------------------------------------- threads and mutexes -- */
 
-void ThreadStart(void (*entry)(void), UINT32 stackSize);
+void ThreadStart(void (*entry)(void), UINT32 stackSize, const char *threadName);
 void ThreadSchedulerStart();
 void MutexInit(HALMutex *mutex);
 void MutexLock(HALMutex *mutex);
 void MutexRelease(HALMutex *mutex);
+void *HeapAlloc(UINT32 size);
+void HeapFree(void *pointer);
 
 /* ------------------------------------------------------------------ stdio -- */
 

@@ -18,6 +18,7 @@
 */
 
 #include "HAL.h"
+#include "Debug.h"
 #include "pico/stdio_usb.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -198,9 +199,23 @@ static void ThreadTrampoline(void *entry) {
     vTaskDelete(NULL);
 }
 
-void ThreadStart(void (*entry)(void), UINT32 stackSize) {
-    xTaskCreate(ThreadTrampoline, "hal.ll thread", stackSize,
+void ThreadStart(void (*entry)(void), UINT32 stackSize, const char *threadName) {
+    xTaskCreate(ThreadTrampoline, threadName, stackSize,
                 (void *)entry, THREAD_PRIORITY, NULL);
+}
+
+/* Fired by the kernel when a task overruns its stack; configCHECK_FOR_STACK_OVERFLOW. */
+void vApplicationStackOverflowHook(TaskHandle_t task, char *name) {
+    (void)task;
+    SHOWDEBUG("[hal.ll] STACK OVERFLOW in task '%s'\r\n", name);
+    for (;;) {}
+}
+
+/* Fired by heap_x when an allocation fails; configUSE_MALLOC_FAILED_HOOK. */
+void vApplicationMallocFailedHook(void) {
+    SHOWDEBUG("[hal.ll] MALLOC FAILED, free heap %u bytes\r\n",
+              (unsigned)xPortGetFreeHeapSize());
+    for (;;) {}
 }
 
 void ThreadSchedulerStart() {
@@ -229,6 +244,14 @@ void MutexRelease(HALMutex *mutex) {
     } else {
         mutex_exit(&mutex->Handle);
     }
+}
+
+void *HeapAlloc(UINT32 size) {
+    return pvPortMalloc(size);
+}
+
+void HeapFree(void *pointer) {
+    vPortFree(pointer);
 }
 
 /* ------------------------------------------------------------------ stdio -- */

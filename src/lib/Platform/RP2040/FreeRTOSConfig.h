@@ -48,8 +48,8 @@
 /* Hooks */
 #define configUSE_IDLE_HOOK                     0
 #define configUSE_TICK_HOOK                     0
-#define configCHECK_FOR_STACK_OVERFLOW          0
-#define configUSE_MALLOC_FAILED_HOOK            0
+#define configCHECK_FOR_STACK_OVERFLOW          2
+#define configUSE_MALLOC_FAILED_HOOK            1
 
 /* Memory */
 #define configSUPPORT_STATIC_ALLOCATION         0
@@ -78,6 +78,7 @@
 #define INCLUDE_xTaskGetCurrentTaskHandle       1
 #define INCLUDE_xTimerPendFunctionCall          1
 #define INCLUDE_xSemaphoreGetMutexHolder        1
+#define INCLUDE_uxTaskGetStackHighWaterMark     1
 
 /* Interrupt mapping for the Cortex-M0+ */
 #define configKERNEL_INTERRUPT_PRIORITY         255

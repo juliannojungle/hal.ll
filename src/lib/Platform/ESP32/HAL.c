@@ -304,8 +304,8 @@ static void ThreadTrampoline(void *entry) {
     vTaskDelete(NULL);
 }
 
-void ThreadStart(void (*entry)(void), UINT32 stackSize) {
-    xTaskCreate(ThreadTrampoline, "hal.ll thread", stackSize,
+void ThreadStart(void (*entry)(void), UINT32 stackSize, const char *threadName) {
+    xTaskCreate(ThreadTrampoline, threadName, stackSize,
                 (void *)entry, THREAD_PRIORITY, NULL);
 }
 
@@ -323,6 +323,14 @@ void MutexLock(HALMutex *mutex) {
 
 void MutexRelease(HALMutex *mutex) {
     xSemaphoreGive(mutex->Handle);
+}
+
+void *HeapAlloc(UINT32 size) {
+    return pvPortMalloc(size);
+}
+
+void HeapFree(void *pointer) {
+    vPortFree(pointer);
 }
 
 /* ------------------------------------------------------------------ stdio -- */
