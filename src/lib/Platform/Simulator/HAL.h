@@ -107,7 +107,7 @@ void RTCGetDateTime(DateTime *dateTime);
 
 /* -------------------------------------------------- threads and mutexes -- */
 
-void ThreadStart(void (*entry)(void));
+void ThreadStart(void (*entry)(void), UINT32 stackSize);
 void ThreadSchedulerStart();
 void MutexInit(HALMutex *mutex);
 void MutexLock(HALMutex *mutex);

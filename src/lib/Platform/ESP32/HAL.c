@@ -297,16 +297,15 @@ void RTCGetDateTime(DateTime *dateTime) {
 
 /* -------------------------------------------------- threads and mutexes -- */
 
-#define THREAD_STACK_SIZE 4096
-#define THREAD_PRIORITY   1
+#define THREAD_PRIORITY 1
 
 static void ThreadTrampoline(void *entry) {
     ((void (*)(void))entry)();
     vTaskDelete(NULL);
 }
 
-void ThreadStart(void (*entry)(void)) {
-    xTaskCreate(ThreadTrampoline, "hal.ll thread", THREAD_STACK_SIZE,
+void ThreadStart(void (*entry)(void), UINT32 stackSize) {
+    xTaskCreate(ThreadTrampoline, "hal.ll thread", stackSize,
                 (void *)entry, THREAD_PRIORITY, NULL);
 }
 

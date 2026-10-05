@@ -244,7 +244,8 @@ static void *ThreadTrampoline(void *entry) {
     return NULL;
 }
 
-void ThreadStart(void (*entry)(void)) {
+void ThreadStart(void (*entry)(void), UINT32 stackSize) {
+    (void)stackSize;
     pthread_t thread;
     pthread_create(&thread, NULL, ThreadTrampoline, (void *)entry);
     pthread_detach(thread);
